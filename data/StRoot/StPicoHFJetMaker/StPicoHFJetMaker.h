@@ -73,16 +73,23 @@ public:
 
   int SetHighTowerVar(StMcTrack *mcTrack, bool isele);
 
+  StEmcADCtoEMaker *mADCtoEMaker;
+  StBemcTables *mTables;
+
   void setEmbPythia(bool kEmbPythia);
   void setIsEmbedding(bool isEmbed); 
 
   void setR(vector<float> &fR);
+
   void setGhostMaxrap(float fGhostMaxrap);
+  
   void setR_bg(float fR_bg);
+  
   void setNJetsRemove(int nJetsRemove);
   void setJetPtMin(float jetPtMin);
   void setCutETmin(float min);
   void setMcJetType(unsigned int us);
+  
   void setTriggerThreshold(float fTrgthresh);
 
   void setRefMultCorr(StRefMultCorr *RefMultCorr);
@@ -91,6 +98,7 @@ public:
   unsigned int mcJetType();
 
   void setHadronCorr(float corr);
+
   void setMaxNeutralFraction(float max);
   void setMaxDcaZHadronCorr(float max);
 
@@ -100,27 +108,40 @@ protected:
   TString mInputFileName; //! *.list - MuDst or picoDst
 
 private:
+  // -- private members --------------------------
+
+  // -- ADD USER MEMBERS HERE -------------------
   vector<TTree *> fTree;
   MyJet fRecoJet;
   MyJet fMcJet;
   float fDeltaR;
   int fCentrality;
   float fCentralityWeight;
+
   int fRunNumber;
+  
   vector<float> fR;
+  
   bool kEmbPythia;
   bool mIsEmbedding = true; // true for embedding, false for data
 
   float fRBg;
   float fGhostMaxrap;
   float fJetPtMin;
+
   int nJetsRemove;
   unsigned int mMcJetType;
   StRefMultCorr *mRefmultCorrUtil;
 
+  // hadronic correction fraction
   float fHadronCorr;
+  
+  // -- max neutral fraction of a jet
   float maxneutralfrac;
+
+  // -- max DCAz for global tracks used for hadronic correction
   float maxdcazhadroncorr;
+  
   float fETmincut;
 
   const double mBarrelRadius = 225.405;
@@ -129,7 +150,10 @@ private:
   bool towErrPlus = false;
   bool towErrMinus = false;
 
+  // trigger threshold
   float fTrgthresh;
+  
+  // pThat range and cross-section weight  
   float fpThatmin;
   float fpThatmax;
   float fXsecWeight;
@@ -141,6 +165,8 @@ private:
   StEmcDecoder *mEmcDecoder;
   StBemcTables *mBemcTables;
   StEvent *mEvent;
+
+  // -- ADD USER MEMBERS HERE -------------------
 
   ClassDef(StPicoHFJetMaker, 0)
 };
