@@ -33,7 +33,7 @@ class StChain;
 void runPicoHFJetMaker(TString inputFile, TString outputFile = "output",
                        const unsigned int makerMode = 0,
                        TString treeName = "picoDst",
-                       bool isEmbedding = true)
+                       bool isEmbedding = true){
 
 #ifdef __CINT__
   gROOT->LoadMacro("loadSharedHFLibraries.C");
@@ -210,10 +210,6 @@ void runPicoHFJetMaker(TString inputFile, TString outputFile = "output",
     }
   }
 
-  if (xsecWeight == -1) {
-    cout << "No pThat range found! Exiting..." << endl;
-    exit(1);
-  }
 
   if (isEmbedding && xsecWeight == -1) {
     cout << "No pThat range found for embedding! Exiting..." << endl;

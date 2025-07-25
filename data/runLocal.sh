@@ -25,13 +25,13 @@ real_inputs=(
 
 if [[ "$mode" == "embedding" || -z "$mode" ]]; then
   echo "Running test on embedding..."
-  root4star -l -b -q 'StRoot/macros/runPicoHFJetMaker.C("$embedding_input", "test_embedding", 0, "picoDst", true)'
+  root4star -l -b -q "StRoot/macros/runPicoHFJetMaker.C(\"$embedding_input\", \"test_embedding\", 0, \"picoDst\", true)"
 fi
 
 if [[ "$mode" == "data" || -z "$mode" ]]; then
   echo "Running tests on data..."
   for input_file in "${real_inputs[@]}"; do
     tag=$(basename "$input_file" .picoDst.root)
-    root4star -l -b -q "StRoot/macros/runPicoHFJetMaker.C(\"$input_file\", \"test_data_${tag}\", 0, \"picoDst\", false)"
+  root4star -l -b -q "StRoot/macros/runPicoHFJetMaker.C(\"$input_file\", \"test_data_${tag}\", 0, \"picoDst\", false)"
   done
 fi
