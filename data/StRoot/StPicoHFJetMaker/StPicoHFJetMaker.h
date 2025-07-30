@@ -76,7 +76,6 @@ public:
   StEmcADCtoEMaker *mADCtoEMaker;
   StBemcTables *mTables;
 
-  void setEmbPythia(bool kEmbPythia);
   void setIsEmbedding(bool isEmbed); 
 
   void setR(vector<float> &fR);
@@ -104,6 +103,12 @@ public:
 
   void setMCparameters(float pThatmin, float pThatmax, float xweight);
 
+  // Systematics
+  void setDoTowErrPlus(bool val);
+  void setDoTowErrMinus(bool val);
+  void setDoTrackErr(bool val);
+
+
 protected:
   TString mInputFileName; //! *.list - MuDst or picoDst
 
@@ -122,7 +127,6 @@ private:
   
   vector<float> fR;
   
-  bool kEmbPythia;
   bool mIsEmbedding = true; // true for embedding, false for data
 
   float fRBg;
@@ -146,9 +150,6 @@ private:
 
   const double mBarrelRadius = 225.405;
 
-  bool trackErr = false;
-  bool towErrPlus = false;
-  bool towErrMinus = false;
 
   // trigger threshold
   float fTrgthresh;
@@ -166,6 +167,12 @@ private:
   StBemcTables *mBemcTables;
   StEvent *mEvent;
 
+  // Systematics
+  bool doTowErrPlus = false;
+  bool doTowErrMinus = false;
+  bool doTrackErr = false;
+
+
   // -- ADD USER MEMBERS HERE -------------------
 
   ClassDef(StPicoHFJetMaker, 0)
@@ -173,10 +180,6 @@ private:
 
 inline void StPicoHFJetMaker::setIsEmbedding(bool isEmbed) {
   StPicoHFJetMaker::mIsEmbedding = isEmbed;
-}
-
-inline void StPicoHFJetMaker::setEmbPythia(bool kEmbPythia) {
-  StPicoHFJetMaker::kEmbPythia = kEmbPythia;
 }
 
 inline void StPicoHFJetMaker::setR(vector<float> &fR) {
@@ -235,5 +238,18 @@ inline void StPicoHFJetMaker::setMCparameters(float pThatmin, float pThatmax,
 inline StRefMultCorr *StPicoHFJetMaker::getRefMultCorr() {
   return mRefmultCorrUtil;
 }
+
+inline void StPicoHFJetMaker::setDoTowErrPlus(bool val) {
+  doTowErrPlus = val;
+}
+
+inline void StPicoHFJetMaker::setDoTowErrMinus(bool val) {
+  doTowErrMinus = val;
+}
+
+inline void StPicoHFJetMaker::setDoTrackErr(bool val) {
+  doTrackErr = val;
+}
+
 
 #endif

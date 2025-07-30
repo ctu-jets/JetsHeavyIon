@@ -30,7 +30,7 @@ cd "${jobFolder}"
 mkdir -p report err log list csh production
 
 check=(
-    ".sl73_x8664_gcc485" # dirs
+    ".sl73_gcc485" # dirs
     "StRoot"
     "StRoot/macros/${rootMacro}" # run macro
     "submit/${templateXml}"      # xml template

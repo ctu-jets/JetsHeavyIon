@@ -179,6 +179,11 @@ void runPicoHFJetMaker(TString inputFile, TString outputFile = "output",
   stPicoHFJetMaker->setMaxDcaZHadronCorr(
       3.0); // cm, max DCA_z for global tracks used for hadronic correction
 
+  // Systematics setters
+  stPicoHFJetMaker->setDoTowErrPlus(false);
+  stPicoHFJetMaker->setDoTowErrMinus(false);
+  stPicoHFJetMaker->setDoTrackErr(false);
+
   float pThatmin = -1;
   float pThatmax = -1;
   float xsecWeight = -1;
@@ -198,6 +203,10 @@ void runPicoHFJetMaker(TString inputFile, TString outputFile = "output",
     headFile = inputFile;
   }
 
+  cout << "Running in " << (isEmbedding ? "embedding" : "data") << " mode." << endl;
+
+  if (isEmbedding){
+
   for (unsigned int pt_name = 0; pt_name < pt_bins_name.size(); pt_name++) {
     if (outputFile.Contains(pt_bins_name[pt_name].Data()) ||
         headFile.Contains(pt_bins_name[pt_name].Data()) ||
@@ -211,14 +220,12 @@ void runPicoHFJetMaker(TString inputFile, TString outputFile = "output",
   }
 
 
-  if (isEmbedding && xsecWeight == -1) {
+  if ( xsecWeight == -1) {
     cout << "No pThat range found for embedding! Exiting..." << endl;
     exit(1);
   }
-  if (isEmbedding)
     stPicoHFJetMaker->setMCparameters(pThatmin, pThatmax, xsecWeight);
-
-  cout << "Running in " << (isEmbedding ? "embedding" : "data") << " mode." << endl;
+  }
 
 
   // Also add protection for StRefMultCorr
