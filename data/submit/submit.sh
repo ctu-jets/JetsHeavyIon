@@ -16,7 +16,14 @@ productionId=$(date +%F)
 # -- set STAR software version
 starVersion="pro"
 # --max number of files
-maxNFiles=100
+maxNFiles=75
+
+run_mode="$2"  # pass "embedding" or "data" from run.sh
+isEmbedding="true"
+if [[ "$run_mode" == "data" ]]; then
+  isEmbedding="false"
+fi
+
 
 #================================================================
 # -- submission xml file
@@ -30,7 +37,7 @@ cd "${jobFolder}"
 mkdir -p report err log list csh production
 
 check=(
-    ".sl73_gcc485" # dirs
+    ".sl73_x8664_gcc485" # dirs
     "StRoot"
     "StRoot/macros/${rootMacro}" # run macro
     "submit/${templateXml}"      # xml template
@@ -67,6 +74,8 @@ cat <<EOF >"${generatedXml}"
 <!ENTITY starVersion "${starVersion}">
 <!ENTITY maxNFiles "${maxNFiles}">
 <!ENTITY filelist_name "${filelist_name}">
+<!ENTITY isEmbedding "${isEmbedding}">
+
 ]>
 EOF
 # -- add the rest of the xml file except the first line <?xml version="1.0" encoding="utf-8" ?>

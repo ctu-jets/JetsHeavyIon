@@ -14,11 +14,11 @@
     <ListLocation>./list/</ListLocation>
   </Generator>
 
-  <command>
-    setup 64b
-    starver &starVersion;
-    root4star -l -b -q StRoot/macros/&rootMacro;\(\"$FILELIST\",\"&filelist_name;_$JOBINDEX\"\) &gt;&amp; ${JOBID}.log
-  </command>
+<command>
+  setup 64b
+  starver &starVersion;
+  root4star -l -b -q StRoot/macros/&rootMacro;\(\"$FILELIST\",\"&filelist_name;_$JOBINDEX\",0,\"picoDst\",&isEmbedding;\)
+</command>
 
   <output fromScratch="*.root" toURL="&jobFolder;/production/" />
   <output fromScratch="*.log" toURL="&jobFolder;/log/" />

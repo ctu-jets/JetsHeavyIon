@@ -203,9 +203,9 @@ void runPicoHFJetMaker(TString inputFile, TString outputFile = "output",
     headFile = inputFile;
   }
 
-  cout << "Running in " << (isEmbedding ? "embedding" : "data") << " mode." << endl;
-
   if (isEmbedding){
+
+    cout << "Running in " << "embedding"<< " mode." << endl;
 
   for (unsigned int pt_name = 0; pt_name < pt_bins_name.size(); pt_name++) {
     if (outputFile.Contains(pt_bins_name[pt_name].Data()) ||
@@ -217,14 +217,17 @@ void runPicoHFJetMaker(TString inputFile, TString outputFile = "output",
       cout << "pThat range found: " << pThatmin << " - " << pThatmax
            << " with xsecWeight = " << xsecWeight << endl;
     }
-  }
-
 
   if ( xsecWeight == -1) {
     cout << "No pThat range found for embedding! Exiting..." << endl;
     exit(1);
   }
     stPicoHFJetMaker->setMCparameters(pThatmin, pThatmax, xsecWeight);
+  }
+
+  }
+  else{
+        cout << "Running in " << "data" << " mode." << endl;
   }
 
 

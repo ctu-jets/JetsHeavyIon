@@ -1,5 +1,8 @@
 #!/bin/bash
 
+setup 64b
+cons
+
 run_mode="$1"  # "embedding", "data", or empty for both
 
 embedding_lists=(
