@@ -30,10 +30,10 @@ using namespace std;
 class StChain;
 #endif
 
-void runPicoHFJetMaker(
-    TString inputFile, TString outputFile = "output",
-    const unsigned int makerMode = 0 /*kAnalyze*/,
-    TString treeName = "picoDst") { // this line added for Embedding analysis
+void runPicoHFJetMaker(TString inputFile, TString outputFile = "output",
+                       const unsigned int makerMode = 0,
+                       TString treeName = "picoDst",
+                       bool isEmbedding = true){
 
 #ifdef __CINT__
   gROOT->LoadMacro("loadSharedHFLibraries.C");
@@ -95,6 +95,8 @@ void runPicoHFJetMaker(
   stPicoHFJetMaker->setMakerMode(makerMode);
   stPicoHFJetMaker->setTreeName(treeName);
   stPicoHFJetMaker->setMcMode(false);
+  stPicoHFJetMaker->setIsEmbedding(isEmbedding);
+
 
   StPicoCuts *picoCuts = new StPicoCuts("PicoCuts");
   stPicoHFJetMaker->setPicoCuts(picoCuts);
@@ -177,6 +179,11 @@ void runPicoHFJetMaker(
   stPicoHFJetMaker->setMaxDcaZHadronCorr(
       3.0); // cm, max DCA_z for global tracks used for hadronic correction
 
+  // Systematics setters
+  stPicoHFJetMaker->setDoTowErrPlus(false);
+  stPicoHFJetMaker->setDoTowErrMinus(false);
+  stPicoHFJetMaker->setDoTrackErr(false);
+
   float pThatmin = -1;
   float pThatmax = -1;
   float xsecWeight = -1;
@@ -196,6 +203,10 @@ void runPicoHFJetMaker(
     headFile = inputFile;
   }
 
+  if (isEmbedding){
+
+    cout << "Running in " << "embedding"<< " mode." << endl;
+
   for (unsigned int pt_name = 0; pt_name < pt_bins_name.size(); pt_name++) {
     if (outputFile.Contains(pt_bins_name[pt_name].Data()) ||
         headFile.Contains(pt_bins_name[pt_name].Data()) ||
@@ -206,14 +217,19 @@ void runPicoHFJetMaker(
       cout << "pThat range found: " << pThatmin << " - " << pThatmax
            << " with xsecWeight = " << xsecWeight << endl;
     }
-  }
 
-  if (xsecWeight == -1) {
-    cout << "No pThat range found! Exiting..." << endl;
+  if ( xsecWeight == -1) {
+    cout << "No pThat range found for embedding! Exiting..." << endl;
     exit(1);
   }
+    stPicoHFJetMaker->setMCparameters(pThatmin, pThatmax, xsecWeight);
+  }
 
-  stPicoHFJetMaker->setMCparameters(pThatmin, pThatmax, xsecWeight);
+  }
+  else{
+        cout << "Running in " << "data" << " mode." << endl;
+  }
+
 
   // Also add protection for StRefMultCorr
   StRefMultCorr *grefmultCorrUtil;

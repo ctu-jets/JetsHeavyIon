@@ -16,7 +16,14 @@ productionId=$(date +%F)
 # -- set STAR software version
 starVersion="pro"
 # --max number of files
-maxNFiles=100
+maxNFiles=75
+
+run_mode="$2"  # pass "embedding" or "data" from run.sh
+isEmbedding="true"
+if [[ "$run_mode" == "data" ]]; then
+  isEmbedding="false"
+fi
+
 
 #================================================================
 # -- submission xml file
@@ -67,6 +74,8 @@ cat <<EOF >"${generatedXml}"
 <!ENTITY starVersion "${starVersion}">
 <!ENTITY maxNFiles "${maxNFiles}">
 <!ENTITY filelist_name "${filelist_name}">
+<!ENTITY isEmbedding "${isEmbedding}">
+
 ]>
 
 EOF

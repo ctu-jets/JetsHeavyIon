@@ -76,18 +76,19 @@ public:
   StEmcADCtoEMaker *mADCtoEMaker;
   StBemcTables *mTables;
 
-  void setEmbPythia(bool kEmbPythia);
+  void setIsEmbedding(bool isEmbed); 
 
   void setR(vector<float> &fR);
 
   void setGhostMaxrap(float fGhostMaxrap);
-
+  
   void setR_bg(float fR_bg);
+  
   void setNJetsRemove(int nJetsRemove);
   void setJetPtMin(float jetPtMin);
   void setCutETmin(float min);
   void setMcJetType(unsigned int us);
-
+  
   void setTriggerThreshold(float fTrgthresh);
 
   void setRefMultCorr(StRefMultCorr *RefMultCorr);
@@ -101,6 +102,12 @@ public:
   void setMaxDcaZHadronCorr(float max);
 
   void setMCparameters(float pThatmin, float pThatmax, float xweight);
+
+  // Systematics
+  void setDoTowErrPlus(bool val);
+  void setDoTowErrMinus(bool val);
+  void setDoTrackErr(bool val);
+
 
 protected:
   TString mInputFileName; //! *.list - MuDst or picoDst
@@ -117,10 +124,10 @@ private:
   float fCentralityWeight;
 
   int fRunNumber;
-
+  
   vector<float> fR;
-
-  bool kEmbPythia;
+  
+  bool mIsEmbedding = true; // true for embedding, false for data
 
   float fRBg;
   float fGhostMaxrap;
@@ -132,24 +139,22 @@ private:
 
   // hadronic correction fraction
   float fHadronCorr;
-
+  
   // -- max neutral fraction of a jet
   float maxneutralfrac;
 
   // -- max DCAz for global tracks used for hadronic correction
   float maxdcazhadroncorr;
-
+  
   float fETmincut;
 
   const double mBarrelRadius = 225.405;
 
-  bool trackErr = false;
-  bool towErrPlus = false;
-  bool towErrMinus = false;
 
   // trigger threshold
   float fTrgthresh;
-  // pThat range and cross-section weight
+  
+  // pThat range and cross-section weight  
   float fpThatmin;
   float fpThatmax;
   float fXsecWeight;
@@ -163,13 +168,19 @@ private:
   StBemcTables *mBemcTables;
   StEvent *mEvent;
 
+  // Systematics
+  bool doTowErrPlus = false;
+  bool doTowErrMinus = false;
+  bool doTrackErr = false;
+
+
   // -- ADD USER MEMBERS HERE -------------------
 
   ClassDef(StPicoHFJetMaker, 0)
 };
 
-inline void StPicoHFJetMaker::setEmbPythia(bool kEmbPythia) {
-  StPicoHFJetMaker::kEmbPythia = kEmbPythia;
+inline void StPicoHFJetMaker::setIsEmbedding(bool isEmbed) {
+  StPicoHFJetMaker::mIsEmbedding = isEmbed;
 }
 
 inline void StPicoHFJetMaker::setR(vector<float> &fR) {
@@ -228,5 +239,18 @@ inline void StPicoHFJetMaker::setMCparameters(float pThatmin, float pThatmax,
 inline StRefMultCorr *StPicoHFJetMaker::getRefMultCorr() {
   return mRefmultCorrUtil;
 }
+
+inline void StPicoHFJetMaker::setDoTowErrPlus(bool val) {
+  doTowErrPlus = val;
+}
+
+inline void StPicoHFJetMaker::setDoTowErrMinus(bool val) {
+  doTowErrMinus = val;
+}
+
+inline void StPicoHFJetMaker::setDoTrackErr(bool val) {
+  doTrackErr = val;
+}
+
 
 #endif

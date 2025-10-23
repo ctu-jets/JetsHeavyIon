@@ -72,6 +72,9 @@ int StPicoHFJetMaker::InitJets() {
     jetTree->Branch("centrality", &fCentrality, "centrality/I");
     jetTree->Branch("centralityWeight", &fCentralityWeight,
                     "centralityWeight/F");
+
+
+    if(mIsEmbedding){
     jetTree->Branch("xsecWeight", &fXsecWeight, "xsecWeight/F");
     jetTree->Branch("deltaR", &fDeltaR, "deltaR/F");
     jetTree->Branch("mc_pt", &fMcJet.pt, "mc_pt/F");
@@ -83,7 +86,7 @@ int StPicoHFJetMaker::InitJets() {
                     "mc_n_constituents/I");
     jetTree->Branch("mc_neutral_fraction", &fMcJet.neutral_fraction,
                     "mc_neutral_fraction/F");
-
+    }
     jetTree->Branch("reco_pt", &fRecoJet.pt, "reco_pt/F");
     jetTree->Branch("reco_pt_corr", &fRecoJet.pt_corr, "reco_pt_corr/F");
     jetTree->Branch("reco_eta", &fRecoJet.eta, "reco_eta/F");
@@ -207,10 +210,10 @@ int StPicoHFJetMaker::MakeJets() {
     TOWE = towE; // just keep track of the original energy for trigger
                  // approximation
 
-    if (towErrPlus == true) {
+    if (doTowErrPlus == true) {
       towE = towE + 0.038 * towE;
     }
-    if (towErrMinus == true) {
+    if (doTowErrMinus == true) {
       towE = towE - 0.038 * towE;
     }
 
@@ -255,7 +258,7 @@ int StPicoHFJetMaker::MakeJets() {
   // loop over primary tracks
   for (unsigned int i = 0; i < mIdxPicoParticles.size(); i++) {
     StPicoTrack *trk = mPicoDst->track(mIdxPicoParticles[i]);
-    if (trackErr == true) {
+    if (doTrackErr == true) {
       double randomNumber = randGen.Rndm();
       if (randomNumber > 0.96) {
         continue;
@@ -283,32 +286,45 @@ int StPicoHFJetMaker::MakeJets() {
       jetTracks.end()); // commenting this line will cause only neutral jets,
   // MAX NEUTRAL FRACTION HAS TO BE TURNED OFF
 
-  //==================================================================================//
-  // Jet part
-  //==================================================================================//
-  fastjet::AreaDefinition area_def(
-      fastjet::active_area_explicit_ghosts,
-      fastjet::GhostedAreaSpec(fGhostMaxrap, 1, 0.01));
+//==================================================================================//
+// Jet part
+//==================================================================================//
+fastjet::AreaDefinition area_def(
+    fastjet::active_area_explicit_ghosts,
+    fastjet::GhostedAreaSpec(fGhostMaxrap, 1, 0.01));
 
-  //====================background estimate=======================//
-  fastjet::JetDefinition jet_def_for_rho(fastjet::kt_algorithm, fRBg);
-  if (fCentrality == 1)
-    nJetsRemove = 2; // remove 2 hardest jets in central
+//====================background estimate=======================//
+fastjet::JetDefinition jet_def_for_rho(fastjet::kt_algorithm, fRBg);
+if (fCentrality == 1)
+  nJetsRemove = 2; // remove 2 hardest jets in central
 
-  fastjet::Selector selector = (!fastjet::SelectorNHardest(nJetsRemove)) *
-                               fastjet::SelectorAbsEtaMax(1.0) *
-                               fastjet::SelectorPtMin(0.01);
+fastjet::Selector selector = (!fastjet::SelectorNHardest(nJetsRemove)) *
+                             fastjet::SelectorAbsEtaMax(1.0) *
+                             fastjet::SelectorPtMin(0.01);
 
-  fastjet::JetMedianBackgroundEstimator bkgd_estimator(
-      selector, jet_def_for_rho, area_def);
-  bkgd_estimator.set_particles(fullTracks);
-  float rho = bkgd_estimator.rho();
+fastjet::JetMedianBackgroundEstimator bkgd_estimator(
+    selector, jet_def_for_rho, area_def);
+bkgd_estimator.set_particles(fullTracks);
+float rho = bkgd_estimator.rho();
+//======================================================================//
+
+for (unsigned int i = 0; i < fR.size(); i++) {
+  fastjet::JetDefinition jet_def(fastjet::antikt_algorithm, fR[i]);
+  float maxRapJet = 1 - fR[i];
+
+  //==============================Reco jets===============================//
+  fastjet::ClusterSequenceArea reco_cluster_seq(fullTracks, jet_def, area_def);
+  vector<fastjet::PseudoJet> fjets_all =
+      sorted_by_pt(reco_cluster_seq.inclusive_jets(fJetPtMin));
+
+  fastjet::Selector fiducial_cut_selector = fastjet::SelectorAbsEtaMax(maxRapJet);
+  vector<fastjet::PseudoJet> RecoJets = fiducial_cut_selector(fjets_all);
+  vector<MyJet> myRecoJets;
+  for (auto &rcJet : RecoJets)
+    myRecoJets.push_back(MyJet(rcJet, rho));
   //======================================================================//
 
-  for (unsigned int i = 0; i < fR.size(); i++) {
-    fastjet::JetDefinition jet_def(fastjet::antikt_algorithm, fR[i]);
-    float maxRapJet = 1 - fR[i];
-
+  if (mIsEmbedding) {
     //==============================MC jets===============================//
     fastjet::ClusterSequenceArea mc_cluster_seq(MCjetTracks, jet_def, area_def);
     vector<fastjet::PseudoJet> Mcjets_all =
@@ -316,29 +332,13 @@ int StPicoHFJetMaker::MakeJets() {
 
     fastjet::Selector McFiducial_cut_selector =
         fastjet::SelectorAbsEtaMax(maxRapJet) * fastjet::SelectorPtMin(0.01) *
-        fastjet::SelectorPtMax(1.5 * fpThatmax);
-    // throw out jets with pT larger than
-    // 1.5*pThat to eliminate high-weight
+        fastjet::SelectorPtMax(1.5 * fpThatmax); // reject high-weight jets
 
     vector<fastjet::PseudoJet> McJets = McFiducial_cut_selector(Mcjets_all);
     vector<MyJet> myMcJets;
     for (auto &mcJet : McJets) {
       myMcJets.push_back(MyJet(mcJet, rho));
     }
-    //======================================================================//
-
-    //==============================Reco jets===============================//
-    fastjet::ClusterSequenceArea reco_cluster_seq(fullTracks, jet_def,
-                                                  area_def);
-    vector<fastjet::PseudoJet> fjets_all =
-        sorted_by_pt(reco_cluster_seq.inclusive_jets(fJetPtMin));
-    fastjet::Selector fiducial_cut_selector =
-        fastjet::SelectorAbsEtaMax(maxRapJet);
-
-    vector<fastjet::PseudoJet> RecoJets = fiducial_cut_selector(fjets_all);
-    vector<MyJet> myRecoJets;
-    for (auto &rcJet : RecoJets)
-      myRecoJets.push_back(MyJet(rcJet, rho));
     //======================================================================//
 
     vector<MatchedJetPair> MatchedJets;
@@ -351,13 +351,24 @@ int StPicoHFJetMaker::MakeJets() {
       fTree[i]->Fill();
     } // end loop over matched jets
 
-  } // end loop over R
+  } else {
+    //==================== Data mode: fill only reco jets ==================//
+    for (const auto &recoJet : myRecoJets) {
+      fRecoJet = recoJet;
+      fMcJet = MyJet(); // empty
+      fDeltaR = -1.0;
+      fTree[i]->Fill();
+    } // end loop over reco jets (data)
+  } // end embedding/data condition
+} // end loop over R
 
   for (int i = 0; i < 4800; i++) {
     Sump[i] = 0.0; // reset Sump array
   }
   return kStOK;
 }
+
+
 
 Double_t StPicoHFJetMaker::GetTowerCalibEnergy(Int_t TowerId) {
   StPicoBTowHit *tower =
@@ -433,6 +444,9 @@ Bool_t StPicoHFJetMaker::GetCaloTrackMomentum(StPicoDst *mPicoDst,
   return true;
 }
 
+//-----------------------------------------------------------------------------
+// Jet matching function using only eta-phi criteria
+//-----------------------------------------------------------------------------
 vector<MatchedJetPair> MatchJetsEtaPhi(const vector<MyJet> &McJets,
                                        const vector<MyJet> &RecoJets,
                                        const double &R) {

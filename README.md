@@ -24,6 +24,11 @@ Another possibility is to install `fastjet` using `data/fastjet_install.sh` scri
 For local use - `data/runLocal.sh` to create a test tree
 And mass production - `data/run.sh` which accepts the list of input files as an argument.
 
+`./run.sh` runs both data and embedding (same logic for Local running)
+`./run.sh embedding` runs only embedding (same logic for Local running)
+`./run.sh data` runs only data (same logic for Local running)
+
+
 ### Main components
 ---
 - The main compiled source code is situated in `data/StRoot/StPicoHFJetMaker/StPicoHFJetMaker.{cxx,h}`
