@@ -217,13 +217,13 @@ void runPicoHFJetMaker(TString inputFile, TString outputFile = "output",
       cout << "pThat range found: " << pThatmin << " - " << pThatmax
            << " with xsecWeight = " << xsecWeight << endl;
     }
-
+  }
   if ( xsecWeight == -1) {
     cout << "No pThat range found for embedding! Exiting..." << endl;
     exit(1);
   }
     stPicoHFJetMaker->setMCparameters(pThatmin, pThatmax, xsecWeight);
-  }
+  
 
   }
   else{
