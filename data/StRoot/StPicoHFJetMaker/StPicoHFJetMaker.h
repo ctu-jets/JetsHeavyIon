@@ -161,6 +161,7 @@ private:
 
   float bemcEnergy[4801];
   int bemcADC[4801];
+
   float Sump[4800];
 
   StEmcDecoder *mEmcDecoder;

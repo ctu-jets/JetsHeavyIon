@@ -77,6 +77,7 @@ cat <<EOF >"${generatedXml}"
 <!ENTITY isEmbedding "${isEmbedding}">
 
 ]>
+
 EOF
 # -- add the rest of the xml file except the first line <?xml version="1.0" encoding="utf-8" ?>
 tail -n +2 "${templateXml}" >>"${generatedXml}"

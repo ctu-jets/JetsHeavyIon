@@ -362,10 +362,10 @@ for (unsigned int i = 0; i < fR.size(); i++) {
   } // end embedding/data condition
 } // end loop over R
 
-for (int i = 0; i < 4800; i++) {
-  Sump[i] = 0.0; // reset Sump array
-}
-return kStOK;
+  for (int i = 0; i < 4800; i++) {
+    Sump[i] = 0.0; // reset Sump array
+  }
+  return kStOK;
 }
 
 

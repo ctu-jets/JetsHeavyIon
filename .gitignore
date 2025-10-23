@@ -1,6 +1,6 @@
 *.root
 
-data/submit/20**
+data/submit/2*
 
 .consign
 .idea/
