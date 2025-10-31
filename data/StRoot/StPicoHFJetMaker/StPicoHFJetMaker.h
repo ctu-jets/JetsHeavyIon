@@ -1,5 +1,6 @@
-#ifndef StPicoHFMyAnaMaker_h
-#define StPicoHFMyAnaMaker_h
+#ifndef StPicoHFJetMaker_h
+#define StPicoHFJetMaker_h
+
 
 #include "StarClassLibrary/StLorentzVectorF.hh"
 #include "StarClassLibrary/StPhysicalHelixD.hh"
@@ -41,8 +42,8 @@
 #include "StMaker.h"
 
 #include "MyJet.h"
+#include "TVector3.h"
 
-using namespace std;
 
 class StPicoDst;
 class StPicoDstMaker;
@@ -56,6 +57,8 @@ class StMcTrack;
 class StEvent;
 class StTrack;
 class StEmcDecoder;
+
+extern const char* kCentTag[4];
 
 class StPicoHFJetMaker : public StPicoJetMaker {
 public:
@@ -116,7 +119,6 @@ private:
   // -- private members --------------------------
 
   // -- ADD USER MEMBERS HERE -------------------
-  vector<TTree *> fTree;
   MyJet fRecoJet;
   MyJet fMcJet;
   float fDeltaR;
@@ -165,7 +167,6 @@ private:
   float Sump[4800];
 
   StEmcDecoder *mEmcDecoder;
-  StBemcTables *mBemcTables;
   StEvent *mEvent;
 
   // Systematics
@@ -173,6 +174,14 @@ private:
   bool doTowErrMinus = false;
   bool doTrackErr = false;
 
+    // fTreeRC[iR][iC] with iC = 0 (central), 1 (midcentral), 2 (peripheral)
+  std::vector<std::vector<TTree*>> fTreeRC;
+
+  // store 3-class mapping per event (0=undef, 1=central, 2=midcentral, 3=peripheral)
+  int fCentrality3;
+
+  std::vector<std::vector<TH2D*>> fH2_den, fH2_num, fH2_reco_mc;
+  std::vector<std::vector<TH1D*>> fH1_reco, fH1_mc;
 
   // -- ADD USER MEMBERS HERE -------------------
 
