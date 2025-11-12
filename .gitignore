@@ -23,7 +23,7 @@ trees/job*
 *.zip
 
 # Container
-*.sif
+analysis/unfolding/roounfold.sif
 
 # Prerequisites
 *.d
