@@ -618,40 +618,35 @@ Bool_t StPicoHFJetMaker::GetCaloTrackMomentum(StPicoDst *mPicoDst,
 vector<MatchedJetPair> MatchJetsEtaPhi(const vector<MyJet> &McJets,
                                        const vector<MyJet> &RecoJets,
                                        const double &R) {
-  vector<MyJet> recoJetsCopy = RecoJets; // copy to avoid modifying the original
+  const double matchRadius = 0.6*R; 
+  vector<char> recoUsed(RecoJets.size(), 0);
   vector<MatchedJetPair> matchedJets;
-  MyJet dummy;
+  matchedJets.reserve(McJets.size() + RecoJets.size());
 
+  // For each MC jet, find the closest unused reco jet within matchRadius
   for (const auto &mcJet : McJets) {
-    bool isMatched = false;
-    double minDeltaR = 10000; // Initialize to a large value
-    auto bestMatch = recoJetsCopy.end();
-
-    // Find the closest reco jet within the threshold
-    for (auto rcit = recoJetsCopy.begin(); rcit != recoJetsCopy.end(); ++rcit) {
-      MyJet recoJet = *rcit;
-      double deltaR = mcJet.deltaR(recoJet);
-
-      if (deltaR < 0.6 * R && deltaR < minDeltaR) {
-        minDeltaR = deltaR;
-        bestMatch = rcit;
-        isMatched = true;
+    int bestIdx = -1;
+    double bestDr = matchRadius;
+    for (size_t j = 0; j < RecoJets.size(); ++j) {
+      if (recoUsed[j]) continue;
+      double dr = mcJet.deltaR(RecoJets[j]); 
+      if (dr < bestDr) {
+        bestDr = dr;
+        bestIdx = (int)j;
       }
     }
-
-    // If a match was found, add it and remove from available jets
-    if (isMatched) {
-      matchedJets.push_back(make_pair(mcJet, *bestMatch));
-      recoJetsCopy.erase(bestMatch);
+    if (bestIdx >= 0) {
+      matchedJets.emplace_back(mcJet, RecoJets[bestIdx]);
+      recoUsed[bestIdx] = 1;
     } else {
-      // If no match was found for this MC jet, record it as unmatched
-      matchedJets.push_back(make_pair(mcJet, dummy));
+      matchedJets.emplace_back(mcJet, MyJet()); // unmatched MC -> dummy reco
     }
   }
 
-  // Add the remaining unmatched reco jets
-  for (const auto &recoJet : recoJetsCopy)
-    matchedJets.push_back(make_pair(dummy, recoJet));
+  // Append unmatched reco jets
+  for (size_t j = 0; j < RecoJets.size(); ++j) {
+    if (!recoUsed[j]) matchedJets.emplace_back(MyJet(), RecoJets[j]);
+  }
 
   return matchedJets;
 }
