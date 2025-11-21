@@ -340,6 +340,9 @@ int StPicoHFJetMaker::MakeJets() {
         StThreeVectorF(mPrimVtx.x(), mPrimVtx.y(), mPrimVtx.z()), realtowID);
     //    float Toweta2 = vertexCorrectedEta(Toweta_tmp, vz); //max eta 1.05258
     //    max difference: ET = 0.124452 for E = 0.2, if we cut on |Vz| < 30 cm
+    if (Towphi < 0) Towphi += 2.0*TMath::Pi();
+    if (Towphi >= 2.0*TMath::Pi()) Towphi -= 2.0*TMath::Pi();
+
     float Toweta = towerPosition.pseudoRapidity();
     double ET = towE / cosh(Toweta);
     if (ET > 30) {
@@ -415,8 +418,7 @@ fastjet::AreaDefinition area_def(
 
 //====================background estimate=======================//
 fastjet::JetDefinition jet_def_for_rho(fastjet::kt_algorithm, fRBg);
-if (c3 == 1)
-  nJetsRemove = 2; // remove 2 hardest jets in central
+nJetsRemove = (c3 == 1 ? 2 : 1); // remove 2 hardest jets in central, 1 otherwise
 
 fastjet::Selector selector = (!fastjet::SelectorNHardest(nJetsRemove)) *
                              fastjet::SelectorAbsEtaMax(1.0) *

@@ -33,7 +33,7 @@ public:
 
   float deltaR(const MyJet &other) const {
     if (pt < 0 || other.pt < 0) {
-      return 10000; // Return 1000 to indicate invalid jets
+      return 10000; // Return 10000 to indicate invalid jets
     }
     float deta = eta - other.eta;
     float dphi = TVector2::Phi_mpi_pi(phi - other.phi);
@@ -41,30 +41,40 @@ public:
   }
 
 #ifndef __CINT__
-  MyJet(fastjet::PseudoJet jet, float rho)
-      : rho(rho) { // instant initialization
-    pt = jet.perp();
-    eta = jet.eta();
-    phi = jet.phi();
-    area = jet.area();
-    pt_corr = pt - area * rho;
-    vector<fastjet::PseudoJet> constituents = sorted_by_pt(jet.constituents());
-    pt_lead = constituents[0].perp();
-    n_constituents = constituents.size();
+MyJet(fastjet::PseudoJet jet, float rho)
+  : rho(rho) {
+  pt   = jet.perp();
+  eta  = jet.eta();
+  phi  = jet.phi();
+  area = jet.area();
+  pt_corr = pt - area * rho;
 
-    float neutral_sum = 0.0;
-    trigger_match = false;
-    for (const auto &constituent : constituents) {
-      int uidx = constituent.user_index();
-      if (uidx == 9999) {
-        trigger_match = true;
-      }
-      if (uidx == 0 || uidx == 9999) { // neutral particles
-        neutral_sum += constituent.perp();
-      }
-    }
-    neutral_fraction = neutral_sum / pt;
+  vector<fastjet::PseudoJet> constituents = sorted_by_pt(jet.constituents());
+  n_constituents = constituents.size();
+
+  if (n_constituents == 0 || pt <= 0) {
+    // mark as invalid jet
+    pt          = -9;
+    pt_corr     = -9;
+    pt_lead     = -9;
+    neutral_fraction = -9;
+    trigger_match    = false;
+    return;
   }
+
+  pt_lead = constituents[0].perp();
+
+  float neutral_sum = 0.0;
+  trigger_match = false;
+  for (const auto &constituent : constituents) {
+    int uidx = constituent.user_index();
+    if (uidx == 9999) trigger_match = true;
+    if (uidx == 0 || uidx == 9999)
+      neutral_sum += constituent.perp();
+  }
+  neutral_fraction = neutral_sum / pt;
+}
+
 #endif
 };
 
