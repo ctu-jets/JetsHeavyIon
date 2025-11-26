@@ -1,8 +1,3 @@
-// Compile in ROOT:  .L unfold_embedding_closure.cxx++
-// Run (example):
-//   UnfoldEmbeddingClosure("/jets/trees/merged_all/embedding_merged.root",
-//                          "/jets/analysis/unfolding/out")
-
 #include "RooUnfoldBayes.h"
 #include "RooUnfoldResponse.h"
 
@@ -37,6 +32,7 @@ static const uint32_t kSeed    = 12345;   // deterministic split
 static const double kPtLeadCuts[] = {0.0, 5.0, 7.0};
 static const int    kNPtLeadCuts  = sizeof(kPtLeadCuts)/sizeof(kPtLeadCuts[0]);
 
+// measured & truth binning
 static const int nbins_meas = 24;
 static const double bin_meas_edges[nbins_meas+1] = {
   -100,-80,-60,-40,-20,-10,-5,-2.5,0,2.5,5,7.5,10,12.5,15,17.5,20,22.5,25,27.5,30,35,40,50,60
@@ -49,19 +45,29 @@ static const double bin_truth_edges[nbins_truth+1] = {
 static const vector<string> kCentralities = {"CENT_0_10", "MID_20_40", "PERI_60_80"};
 static const vector<string> kRadii        = {"R0.2", "R0.3", "R0.4"};
 
+// ------------------ jet-quality cuts -------------------------
+
+// Area cuts per jet radius
+static const double CUT_AREA_02 = 0.07;  // R = 0.2
+static const double CUT_AREA_03 = 0.20;  // R = 0.3
+static const double CUT_AREA_04 = 0.40;  // R = 0.4
+
+// Max neutral energy fraction
+static const double CUT_NEUTRAL_FRACTION = 0.95;
+
 // --------------------------------------------------------------
 
 static void EnsureDir(const string& path){
-  if (gSystem->AccessPathName(path.c_str())) gSystem->mkdir(path.c_str(), /*recursive=*/true);
+  if (gSystem->AccessPathName(path.c_str()))
+    gSystem->mkdir(path.c_str(), /*recursive=*/true);
 }
 
 void unfold(const char* inputFile,
-                            const char* outDir)
+            const char* outDir)
 {
   gStyle->SetOptStat(0);
   EnsureDir(outDir);
 
-  // open the single merged embedding file
   TFile* fin = TFile::Open(inputFile, "READ");
   if (!fin || fin->IsZombie()) {
     cout << "[error] Cannot open input file: " << inputFile << endl;
@@ -70,9 +76,19 @@ void unfold(const char* inputFile,
 
   // loop R, centrality, ptlead
   for (const auto& R : kRadii) {
+    // parse numeric R to choose area cut
+    double Rval = 0.0;
+    if (sscanf(R.c_str(), "R%lf", &Rval) != 1) {
+      cout << "[warn] Could not parse radius from " << R << ", skipping.\n";
+      continue;
+    }
+    double areaMin = 0.0;
+    if      (Rval < 0.25) areaMin = CUT_AREA_02; // ~0.2
+    else if (Rval < 0.35) areaMin = CUT_AREA_03; // ~0.3
+    else                  areaMin = CUT_AREA_04; // ~0.4
+
     for (const auto& C : kCentralities) {
 
-      // get the tree directly by path: R*/CENT_*/JetTree
       const string treePath = R + "/" + C + "/JetTree";
       TTree* tr = dynamic_cast<TTree*>(fin->Get(treePath.c_str()));
       if (!tr) {
@@ -89,12 +105,15 @@ void unfold(const char* inputFile,
       tr->SetBranchStatus("reco_trigger_match", 1);
       tr->SetBranchStatus("centralityWeight", 1);
       tr->SetBranchStatus("xsecWeight", 1);
+      tr->SetBranchStatus("reco_area", 1);
+      tr->SetBranchStatus("reco_neutral_fraction", 1);
 
       // branch addresses
       float mc_pt=0, mc_pt_lead=0;
       float reco_pt_corr=0, reco_pt_lead=0;
       bool  reco_trigger_match=false;
       float centralityWeight=1.0f, xsecWeight=1.0f;
+      float reco_area=0.0f, reco_neutral_fraction=0.0f;
 
       tr->SetBranchAddress("mc_pt", &mc_pt);
       tr->SetBranchAddress("mc_pt_lead", &mc_pt_lead);
@@ -103,6 +122,8 @@ void unfold(const char* inputFile,
       tr->SetBranchAddress("reco_trigger_match", &reco_trigger_match);
       tr->SetBranchAddress("centralityWeight", &centralityWeight);
       tr->SetBranchAddress("xsecWeight", &xsecWeight);
+      tr->SetBranchAddress("reco_area", &reco_area);
+      tr->SetBranchAddress("reco_neutral_fraction", &reco_neutral_fraction);
 
       const Long64_t n = tr->GetEntries();
       if (n <= 0) {
@@ -114,7 +135,6 @@ void unfold(const char* inputFile,
         const double cut = kPtLeadCuts[ic];
         const string tag = R + "_" + C + Form("_ptlead%.0f", cut);
 
-        // histograms
         TH1D* hMeasTrain = new TH1D(("hMeas_"+tag).c_str(),
             ";reco p_{T}^{corr} [GeV];dN/dp_{T}",
             nbins_meas, bin_meas_edges);
@@ -137,13 +157,14 @@ void unfold(const char* inputFile,
           tr->GetEntry(i);
 
           if (!reco_trigger_match) continue;
+          if (reco_area < areaMin) continue;
+          if (reco_neutral_fraction > CUT_NEUTRAL_FRACTION) continue;
 
           // dual ptlead cut (both reco & MC)
           if (!(reco_pt_lead >= cut && mc_pt_lead >= cut)) continue;
 
           const double w = (double)centralityWeight * (double)xsecWeight;
 
-          // 50/50 split
           const bool train = (rng.Uniform() > kTestFrac);
           if (train) {
             hRespRecoVsTruth->Fill(reco_pt_corr, mc_pt, w);
@@ -156,7 +177,6 @@ void unfold(const char* inputFile,
         }
         cout << endl;
 
-        // response + unfold
         RooUnfoldResponse response(hMeasTrain, hTrueTrain, hRespRecoVsTruth);
         response.SetName(("response_"+tag).c_str());
 
@@ -216,7 +236,6 @@ void unfold(const char* inputFile,
                        frame->GetXaxis()->GetXmax(), 0.95);
         ln->SetLineStyle(2); ln->SetLineColor(kGray+1); ln->Draw();
 
-        // outputs
         const string tagfile = R + "_" + C + Form("_ptlead%.0f", cut);
         const string rootPath = string(outDir) + "/unfold_response_" + tagfile + ".root";
         const string pdfPath  = string(outDir) + "/closure_" + tagfile + ".pdf";

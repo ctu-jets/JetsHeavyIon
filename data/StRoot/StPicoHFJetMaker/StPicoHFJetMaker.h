@@ -135,6 +135,8 @@ private:
   float fGhostMaxrap;
   float fJetPtMin;
 
+  std::vector<double> fAcuts;  // minimum jet area per R
+
   int nJetsRemove;
   unsigned int mMcJetType;
   StRefMultCorr *mRefmultCorrUtil;

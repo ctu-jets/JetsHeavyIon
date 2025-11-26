@@ -1,12 +1,12 @@
 *.root
 
 data/submit/2*
-trees/job*
-trees/1st_attempt/job*
+*job*
 
 .consign
 .idea/
 
+inlist*
 *.log
 *.pdf
 *.out
