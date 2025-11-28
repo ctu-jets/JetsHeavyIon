@@ -182,7 +182,7 @@ private:
   // store 3-class mapping per event (0=undef, 1=central, 2=midcentral, 3=peripheral)
   int fCentrality3;
 
-  std::vector<std::vector<TH2D*>> fH2_den, fH2_num, fH2_reco_mc;
+  std::vector<std::vector<TH2D*>> fH2_den, fH2_num, fH2_reco_mc, fH2_reco_matched;
   std::vector<std::vector<TH1D*>> fH1_reco, fH1_mc;
 
   // -- ADD USER MEMBERS HERE -------------------

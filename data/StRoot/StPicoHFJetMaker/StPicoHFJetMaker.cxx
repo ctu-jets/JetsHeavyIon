@@ -15,6 +15,7 @@
 #include <iomanip>
 #include <iostream>
 #include <vector>
+#include <algorithm>
 
 #include "fastjet/ClusterSequenceArea.hh"
 #include "fastjet/JetDefinition.hh"
@@ -22,6 +23,7 @@
 #include "fastjet/Selector.hh"
 #include "fastjet/config.h"
 #include "fastjet/tools/JetMedianBackgroundEstimator.hh"
+#include "fastjet/tools/Subtractor.hh"
 
 #include "MyJet.h"
 
@@ -34,7 +36,6 @@ const char* kCentTag[4] = {
   "PERI_60_80"   // c3 = 3
 };
 
-const bool APPLY_HISTO_CUTS = false; // Set to true to apply cuts on jet area and neutral fraction when filling QA histograms 
 
 const double CUT_AREA_02 = 0.07; // R = 0.2
 const double CUT_AREA_03 = 0.20; // R = 0.3
@@ -69,11 +70,6 @@ int StPicoHFJetMaker::InitJets() {
   assert(mADCtoEMaker);
   mTables = mADCtoEMaker->getBemcData()->getTables();
 
-  // -- INITIALIZE USER HISTOGRAMS ETC HERE -------------------
-  //    add them to the output list mOutList which is automatically written
-
-  // EXAMPLE //  mOutList->Add(new TH1F(...));
-  // EXAMPLE //  TH1F* hist = static_cast<TH1F*>(mOutList->Last());
   TH1::SetDefaultSumw2();
 
   mOutList->SetName("QA_histograms"); 
@@ -107,6 +103,8 @@ int StPicoHFJetMaker::InitJets() {
         fH1_reco.assign(nR, std::vector<TH1D*>(4, nullptr));
         fH1_mc.assign(nR, std::vector<TH1D*>(4, nullptr));
         fH2_reco_mc.assign(nR, std::vector<TH2D*>(4, nullptr));
+        fH2_reco_matched.assign(nR, std::vector<TH2D*>(4, nullptr));
+
       }
 
       
@@ -139,6 +137,11 @@ int StPicoHFJetMaker::InitJets() {
         Form("Reco p_{T}^{corr} vs MC p_{T} (R=%.1f, %s);p_{T}^{MC} [GeV];p_{T}^{corr} [GeV]",
          fR[iR], kCentTag[c3]), nb_pt, pt_min, pt_max, nb_pt, pt_min, pt_max);
       fH2_reco_mc[iR][ci]->SetDirectory(cdir);
+
+      fH2_reco_matched[iR][ci] = new TH2D("reco_matched_ptcorr_vs_ptlead",
+        Form("Matched reco jets p_{T}^{corr} vs p_{T}^{lead} (R=%.1f, %s);p_{T}^{corr} [GeV];p_{T}^{lead} [GeV]",
+         fR[iR], kCentTag[c3]), nb_pt, pt_min, pt_max, nb_lead, lead_min, lead_max);
+      fH2_reco_matched[iR][ci]->SetDirectory(cdir);
     }
       
       // ---- TTree per (R,class); NO centrality branch
@@ -211,10 +214,11 @@ int StPicoHFJetMaker::FinishJets() {
         if (ci < fH2_den[iR].size()     && fH2_den[iR][ci])     fH2_den[iR][ci]->Write();
         if (ci < fH2_num[iR].size()     && fH2_num[iR][ci])     fH2_num[iR][ci]->Write();
         if (ci < fH1_reco[iR].size()    && fH1_reco[iR][ci])    fH1_reco[iR][ci]->Write();
-        if (mIsEmbedding) {
-          if (ci < fH1_mc[iR].size()      && fH1_mc[iR][ci])      fH1_mc[iR][ci]->Write();
-          if (ci < fH2_reco_mc[iR].size() && fH2_reco_mc[iR][ci]) fH2_reco_mc[iR][ci]->Write();
-        }
+      if (mIsEmbedding) {
+        if (ci < fH1_mc[iR].size()          && fH1_mc[iR][ci])          fH1_mc[iR][ci]->Write();
+        if (ci < fH2_reco_mc[iR].size()     && fH2_reco_mc[iR][ci])     fH2_reco_mc[iR][ci]->Write();
+        if (ci < fH2_reco_matched[iR].size()&& fH2_reco_matched[iR][ci])fH2_reco_matched[iR][ci]->Write(); // NEW
+      }
       }
     } // c3
   }   // iR
@@ -314,6 +318,28 @@ int StPicoHFJetMaker::MakeJets() {
     MCjetTracks.push_back(inputMcParticle);
   }
 
+if (mIsEmbedding && fpThatmax > 0.0 && !MCjetTracks.empty()) {
+  float Rcheck = fR.empty() ? 0.4f : *std::max_element(fR.begin(), fR.end());
+  fastjet::JetDefinition mc_jet_def_veto(fastjet::antikt_algorithm, Rcheck);
+  fastjet::ClusterSequence mc_cs_veto(MCjetTracks, mc_jet_def_veto);
+  std::vector<fastjet::PseudoJet> mcjets_veto =
+      sorted_by_pt(mc_cs_veto.inclusive_jets(1.0)); // pT > 1 GeV
+
+  const double ptMaxVeto = 1.5 * fpThatmax;
+
+  bool vetoEvent = false;
+  for (const auto &j : mcjets_veto) {
+    if (j.perp() > ptMaxVeto) {
+      vetoEvent = true;
+      break;
+    }
+  }
+
+  if (vetoEvent) {
+    for (int i = 0; i < 4800; i++) Sump[i] = 0.0;
+    return kStOK;
+  }
+}
   // RC part
   GetCaloTrackMomentum(mPicoDst, mPrimVtx); // fill array Sump with momenta of
                                             // tracks which are matched to BEMC
@@ -438,6 +464,7 @@ fastjet::JetMedianBackgroundEstimator bkgd_estimator(
     selector, jet_def_for_rho, area_def);
 bkgd_estimator.set_particles(fullTracks);
 float rho = bkgd_estimator.rho();
+fastjet::Subtractor subtractor(&bkgd_estimator);
 //======================================================================//
 
 for (unsigned int i = 0; i < fR.size(); i++) {
@@ -445,15 +472,23 @@ for (unsigned int i = 0; i < fR.size(); i++) {
   float maxRapJet = 1 - fR[i];
 
   //==============================Reco jets===============================//
-  fastjet::ClusterSequenceArea reco_cluster_seq(fullTracks, jet_def, area_def);
-  vector<fastjet::PseudoJet> fjets_all =
-      sorted_by_pt(reco_cluster_seq.inclusive_jets(fJetPtMin));
+fastjet::ClusterSequenceArea reco_cluster_seq(fullTracks, jet_def, area_def);
+std::vector<fastjet::PseudoJet> fjets_all_raw =
+    sorted_by_pt(reco_cluster_seq.inclusive_jets(fJetPtMin));
 
-  fastjet::Selector fiducial_cut_selector = fastjet::SelectorAbsEtaMax(maxRapJet);
-  vector<fastjet::PseudoJet> RecoJets = fiducial_cut_selector(fjets_all);
-  vector<MyJet> myRecoJets;
-  for (auto &rcJet : RecoJets)
-    myRecoJets.push_back(MyJet(rcJet, rho));
+// fiducial cut on *raw* jets
+fastjet::Selector fiducial_cut_selector = fastjet::SelectorAbsEtaMax(maxRapJet);
+std::vector<fastjet::PseudoJet> RecoJets_raw = fiducial_cut_selector(fjets_all_raw);
+
+// apply FastJet background subtraction
+std::vector<fastjet::PseudoJet> RecoJets = subtractor(RecoJets_raw);
+
+std::vector<MyJet> myRecoJets;
+myRecoJets.reserve(RecoJets.size());
+for (auto &rcJetSub : RecoJets) {
+  // rcJetSub already has pT_subtracted = pT_raw - rho*A
+  myRecoJets.push_back(MyJet(rcJetSub, rho));
+}
   //======================================================================//
 
   // pick tree for this (R, class)
@@ -468,9 +503,9 @@ for (unsigned int i = 0; i < fR.size(); i++) {
   TH1D* hReco   = (i < fH1_reco.size()    && ci >= 0 && fH1_reco[i][ci])    ? fH1_reco[i][ci]    : nullptr;
   TH1D* hMc     = (mIsEmbedding && i < fH1_mc.size() && ci >= 0 && fH1_mc[i][ci]) ? fH1_mc[i][ci] : nullptr;
   TH2D* hRecoMc = (mIsEmbedding && i < fH2_reco_mc.size() && ci >= 0 && fH2_reco_mc[i][ci]) ? fH2_reco_mc[i][ci] : nullptr;
+  TH2D* hRecoMatched = (mIsEmbedding && i < fH2_reco_matched.size() && ci >= 0 && fH2_reco_matched[i][ci]) ? fH2_reco_matched[i][ci] : nullptr;
 
-
-    //==================== Embedding mode ==================//
+//==================== Embedding mode ==================//
 if (mIsEmbedding) {
   //============================== MC jets ===============================//
   fastjet::ClusterSequenceArea mc_cluster_seq(MCjetTracks, jet_def, area_def);
@@ -479,14 +514,16 @@ if (mIsEmbedding) {
 
   fastjet::Selector McFiducial_cut_selector =
       fastjet::SelectorAbsEtaMax(maxRapJet) *
-      fastjet::SelectorPtMin(0.01) *
-      fastjet::SelectorPtMax(1.5 * fpThatmax); // reject high-weight jets
+      fastjet::SelectorPtMin(0.01);
 
-  vector<fastjet::PseudoJet> McJets = McFiducial_cut_selector(Mcjets_all);
-  vector<MyJet> myMcJets;
-  for (auto &mcJet : McJets) {
-    myMcJets.push_back(MyJet(mcJet, rho));
-  }
+vector<fastjet::PseudoJet> McJets = McFiducial_cut_selector(Mcjets_all);
+vector<MyJet> myMcJets;
+myMcJets.reserve(McJets.size());
+for (auto &mcJet : McJets) {
+  // truth jet: no background subtraction, rho stored as 0
+  myMcJets.push_back(MyJet(mcJet, 0.0f));
+}
+
 
   //========================= MC–Reco matching ===========================//
   vector<MatchedJetPair> MatchedJets = MatchJetsEtaPhi(myMcJets, myRecoJets, fR[i]);
@@ -499,37 +536,62 @@ if (mIsEmbedding) {
     const bool haveReco = (fRecoJet.pt >= 0);
     const bool haveMC   = (fMcJet.pt   >= 0);
 
-    // --- MC-only histograms ---
-    if (haveMC && hMc) hMc->Fill(fMcJet.pt, w_event);
+    // --- MC-only histograms (all MC jets) ---
+    if (haveMC && hMc) {
+      hMc->Fill(fMcJet.pt, w_event);
+    }
 
-    if (!haveReco)
-      continue;
+    // ================= Reco-part: trigger-efficiency histos =================
+    if (haveReco) {
+      // Always apply area & neutral-fraction cuts for trigger-efficiency histos
+      const bool passCuts = passHistoCuts(fRecoJet, fR[i]);
 
-      if (APPLY_HISTO_CUTS) {
-       if (!passHistoCuts(fRecoJet, fR[i]))
-        continue;
+      // Den: all reco jets that pass cuts
+      if (passCuts && hDen) {
+        hDen->Fill(fRecoJet.pt_corr, fRecoJet.pt_lead, w_event);
       }
 
-    if (hDen) hDen->Fill(fRecoJet.pt_corr, fRecoJet.pt_lead, w_event);
-
-    // If not triggered, we stop here (no Num/reco/response/tree)
-    if (!fRecoJet.trigger_match)
-      continue;
-
-      if (APPLY_HISTO_CUTS) {
-       if (!passHistoCuts(fRecoJet, fR[i]))
-        continue;
+      // Reco-only, non-trigger jets: only Den (if above) and nothing else,
+      if (!fRecoJet.trigger_match && !haveMC) {
+        continue; // skip Num/Reco/Response/Tree for these
       }
 
-    // Num: triggered jets only
-    if (hNum) hNum->Fill(fRecoJet.pt_corr, fRecoJet.pt_lead, w_event);
+      // Num: triggered jets only, with cuts
+      if (fRecoJet.trigger_match && passCuts && hNum) {
+        hNum->Fill(fRecoJet.pt_corr, fRecoJet.pt_lead, w_event);
+      }
 
-    if (hReco) hReco->Fill(fRecoJet.pt_corr, w_event);
+      // Reco spectrum (for jets in the trigger/MC sample), with cuts
+      if (passCuts && hReco) {
+        hReco->Fill(fRecoJet.pt_corr, w_event);
+      }
 
-    if (haveMC && hRecoMc) hRecoMc->Fill(fMcJet.pt, fRecoJet.pt_corr, w_event);
-    if (jetTree)
-      jetTree->Fill();
-  }
+      // Response matrix: only matched jets, with cuts
+      if (haveMC && passCuts && hRecoMc) {
+        hRecoMc->Fill(fMcJet.pt, fRecoJet.pt_corr, w_event);
+      }
+
+      // Matched reco jets for trigger/MC sample, with cuts
+      if (haveMC && passCuts && hRecoMatched) {
+        hRecoMatched->Fill(fRecoJet.pt_corr, fRecoJet.pt_lead, w_event);
+      }
+
+    } // end if (haveReco)
+
+    // ================= Tree filling =================
+    // Now we want:
+    //  - all MC jets (even if no reco) in the tree
+    //  - plus reco jets with MC or trigger (same as before) 
+    if (jetTree) {
+      // MC-only jets: haveMC == true, haveReco == false -> included here
+      // Reco-only triggered jets: haveMC == false, trigger_match == true -> also included
+      // Matched jets: haveMC == true, haveReco == true -> included
+      if (haveMC || (haveReco && fRecoJet.trigger_match)) {
+        jetTree->Fill();
+      }
+    }
+  } // end loop over MatchedJets
+
 } else {
   //==================== Data mode ===========================//
   for (const auto& rj : myRecoJets) {
@@ -537,17 +599,29 @@ if (mIsEmbedding) {
     fMcJet   = MyJet();   // dummy
     fDeltaR  = -1.0;
 
-    // Den: all jets that pass selection
-    if (hDen) hDen->Fill(fRecoJet.pt_corr, fRecoJet.pt_lead, w_event);
+    // Always apply area & neutral-fraction cuts for trigger-efficiency histos
+    const bool passCuts = passHistoCuts(fRecoJet, fR[i]);
 
-    // Num: only jets that *contain* the trigger tower
-    if (fRecoJet.trigger_match && hNum) hNum->Fill(fRecoJet.pt_corr, fRecoJet.pt_lead, w_event);
+    // Den: all reco jets that pass cuts
+    if (passCuts && hDen) {
+      hDen->Fill(fRecoJet.pt_corr, fRecoJet.pt_lead, w_event);
+    }
 
-    if (fRecoJet.trigger_match && hReco) hReco->Fill(fRecoJet.pt_corr, w_event);
+    // Num: triggered jets only, with cuts
+    if (fRecoJet.trigger_match && passCuts && hNum) {
+      hNum->Fill(fRecoJet.pt_corr, fRecoJet.pt_lead, w_event);
+    }
+
+    // Reco spectrum of triggered jets, with cuts
+    if (fRecoJet.trigger_match && passCuts && hReco) {
+      hReco->Fill(fRecoJet.pt_corr, w_event);
+    }
+
+    // Tree: only triggered jets, independent of cuts
     if (!fRecoJet.trigger_match) continue;
     if (jetTree) jetTree->Fill();
-    } // end loop over reco jets
-  } // end embedding/data condition
+  } // end loop over reco jets (data)
+} // end embedding/data
 } // end loop over R
 
   for (int i = 0; i < 4800; i++) {

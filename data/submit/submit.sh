@@ -82,5 +82,5 @@ EOF
 # -- add the rest of the xml file except the first line <?xml version="1.0" encoding="utf-8" ?>
 tail -n +2 "${templateXml}" >>"${generatedXml}"
 
-star-submit "${generatedXml}"
+star-submit -u ie "${generatedXml}"
 # star-submit-beta "${generatedXml}"
