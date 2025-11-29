@@ -23,7 +23,6 @@
 #include "fastjet/Selector.hh"
 #include "fastjet/config.h"
 #include "fastjet/tools/JetMedianBackgroundEstimator.hh"
-#include "fastjet/tools/Subtractor.hh"
 
 #include "MyJet.h"
 
@@ -464,7 +463,6 @@ fastjet::JetMedianBackgroundEstimator bkgd_estimator(
     selector, jet_def_for_rho, area_def);
 bkgd_estimator.set_particles(fullTracks);
 float rho = bkgd_estimator.rho();
-fastjet::Subtractor subtractor(&bkgd_estimator);
 //======================================================================//
 
 for (unsigned int i = 0; i < fR.size(); i++) {
@@ -473,21 +471,16 @@ for (unsigned int i = 0; i < fR.size(); i++) {
 
   //==============================Reco jets===============================//
 fastjet::ClusterSequenceArea reco_cluster_seq(fullTracks, jet_def, area_def);
-std::vector<fastjet::PseudoJet> fjets_all_raw =
+std::vector<fastjet::PseudoJet> fjets_all =
     sorted_by_pt(reco_cluster_seq.inclusive_jets(fJetPtMin));
 
-// fiducial cut on *raw* jets
 fastjet::Selector fiducial_cut_selector = fastjet::SelectorAbsEtaMax(maxRapJet);
-std::vector<fastjet::PseudoJet> RecoJets_raw = fiducial_cut_selector(fjets_all_raw);
-
-// apply FastJet background subtraction
-std::vector<fastjet::PseudoJet> RecoJets = subtractor(RecoJets_raw);
+std::vector<fastjet::PseudoJet> RecoJets = fiducial_cut_selector(fjets_all);
 
 std::vector<MyJet> myRecoJets;
 myRecoJets.reserve(RecoJets.size());
-for (auto &rcJetSub : RecoJets) {
-  // rcJetSub already has pT_subtracted = pT_raw - rho*A
-  myRecoJets.push_back(MyJet(rcJetSub, rho));
+for (auto &rcJet : RecoJets) {
+  myRecoJets.push_back(MyJet(rcJet, rho));
 }
   //======================================================================//
 

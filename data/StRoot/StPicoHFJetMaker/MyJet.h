@@ -43,20 +43,20 @@ public:
 #ifndef __CINT__
 MyJet(fastjet::PseudoJet jet, float rho)
   : rho(rho) {
-  pt   = jet.perp();      // this is already subtracted when we use Subtractor
+  pt   = jet.perp();
   eta  = jet.eta();
   phi  = jet.phi();
-  area = jet.area();
-  pt_corr = pt;           // no rho * area subtraction here anymore
+  area = jet.area_4vector().pt(); 
+  pt_corr = pt - area * rho;
 
-  std::vector<fastjet::PseudoJet> constituents = sorted_by_pt(jet.constituents());
+  vector<fastjet::PseudoJet> constituents = sorted_by_pt(jet.constituents());
   n_constituents = constituents.size();
 
   if (n_constituents == 0 || pt <= 0) {
     // mark as invalid jet
-    pt              = -9;
-    pt_corr         = -9;
-    pt_lead         = -9;
+    pt          = -9;
+    pt_corr     = -9;
+    pt_lead     = -9;
     neutral_fraction = -9;
     trigger_match    = false;
     return;
@@ -74,6 +74,7 @@ MyJet(fastjet::PseudoJet jet, float rho)
   }
   neutral_fraction = neutral_sum / pt;
 }
+
 #endif
 };
 

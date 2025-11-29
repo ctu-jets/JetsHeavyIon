@@ -3,11 +3,17 @@
 # Reads:  <BASE>/job_ptX_Y/production/*.root
 # Writes: <OUT_DIR>/embedding_ptX_Y.root
 #
+# Default behavior:
+#   - Assumes this script lives in:  <REPO>/trees
+#   - Looks under:                   <REPO>/data/submit/<YYYY-MM-DD>/
+#   - Picks the newest <YYYY-MM-DD> directory
+#
 # Usage:
-#   ./merge_embedding_per_bin.sh /path/to/trees [OUT_DIR]
+#   ./merge_pThatbins.sh [BASE] [OUT_DIR]
 #
 # Defaults:
-#   OUT_DIR = <BASE>/merged_all
+#   BASE    = <REPO>/data/submit/<newest_YYYY-MM-DD>
+#   OUT_DIR = <REPO>/trees/merged_all
 #
 # Env:
 #   MIN_SIZE=5000    # ignore tiny files (bytes)
@@ -16,8 +22,39 @@
 
 set -euo pipefail
 
-BASE="${1:-.}"
-OUT_DIR="${2:-$BASE/merged_all}"
+log() {
+  printf '[%s] %s\n' "$(date '+%F %T')" "$*"
+}
+
+########################
+# Locate repo + defaults
+########################
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+SUBMIT_DIR="${REPO_DIR}/data/submit"
+
+latest_run=""
+if [[ -d "$SUBMIT_DIR" ]]; then
+  latest_run="$(find "$SUBMIT_DIR" -maxdepth 1 -mindepth 1 -type d -printf '%f\n' \
+                | sort | tail -n 1 || true)"
+fi
+
+if [[ -z "$latest_run" ]]; then
+  echo "ERROR: No run directories found under: $SUBMIT_DIR"
+  echo "       Expected something like: $SUBMIT_DIR/2025-11-28"
+  exit 1
+fi
+
+DEFAULT_BASE="${SUBMIT_DIR}/${latest_run}"
+DEFAULT_OUT_DIR="${SCRIPT_DIR}/merged_all"
+
+########################
+# Arguments
+########################
+
+BASE="${1:-$DEFAULT_BASE}"
+OUT_DIR="${2:-$DEFAULT_OUT_DIR}"
 
 MIN_SIZE="${MIN_SIZE:-5000}"
 BATCH="${BATCH:-200}"
@@ -42,7 +79,7 @@ merge_one_bin () {
   local final="$OUT_DIR/embedding_${tag}.root"
 
   if [[ ! -d "$prod" ]]; then
-    echo "  [skip] $bin: no production/ directory"
+    log "  [skip] $bin: no production/ directory at $prod"
     return 0
   fi
 
@@ -63,16 +100,17 @@ merge_one_bin () {
   done < <(find "$prod" -type f -name '*.root' -print0 | sort -z)
 
   if [[ "$has" -eq 0 ]]; then
-    echo "  [note] $bin: no usable ROOT files"
+    log "  [note] $bin: no usable ROOT files"
     rm -rf "$tmpdir"
     return 0
   fi
 
   local N
   N=$(wc -l < "$list" | tr -d ' ')
+
   if [[ "$N" -eq 1 ]]; then
     cp -f "$(head -n1 "$list")" "$final"
-    echo "  [ok]   $bin -> $(basename "$final") (1 file)"
+    log "  [ok]   $bin -> $(basename "$final") (1 file)"
     rm -rf "$tmpdir"
     return 0
   fi
@@ -81,10 +119,17 @@ merge_one_bin () {
   rm -f "$tmpdir"/shard_*.root "$tmpdir"/inlist.batch.* || true
   split -l "$BATCH" -d -a 4 "$list" "$tmpdir/inlist.batch."
 
+  local shard_files=( "$tmpdir"/inlist.batch.* )
+  local num_shards="${#shard_files[@]}"
+
+  log "  [bin $bin] merging $N files in $num_shards shard(s)..."
   local idx=0
-  for sub in "$tmpdir"/inlist.batch.*; do
+  for sub in "${shard_files[@]}"; do
     local shard
     shard=$(printf "%s/shard_%04d.root" "$tmpdir" "$idx")
+    local files_in_shard
+    files_in_shard=$(wc -l < "$sub" | tr -d ' ')
+    log "    [shard $((idx+1))/$num_shards] $files_in_shard files"
     hadd $HADD_FLAGS "$shard" $(tr '\n' ' ' < "$sub") >/dev/null
     idx=$((idx+1))
   done
@@ -99,11 +144,17 @@ merge_one_bin () {
     rm -f "$tmpdir"/inlist.txt "$tmpdir"/inlist.batch.* || true
   fi
 
-  echo "  [ok]   $bin -> $(basename "$final") ($N files)"
+  log "  [ok]   $bin -> $(basename "$final") ($N files)"
 }
 
-echo "Merging per pThat bin into: $OUT_DIR"
+log "Merging per pThat bin"
+log "  BASE       : $BASE"
+log "  OUT_DIR    : $OUT_DIR"
+log "  Newest run : $latest_run"
+echo
+
 for bin in "${BINS[@]}"; do
   merge_one_bin "$bin"
 done
-echo "Done."
+
+log "Done."
